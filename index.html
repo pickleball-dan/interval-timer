@@ -258,9 +258,12 @@ btnStart.addEventListener('click', () => {
   running = !running;
   btnStart.textContent = running ? 'Pause' : 'Resume';
   if (running) {
+    // Unlock speech on iOS by speaking immediately on user gesture
+    speak('Work');
     ticker = setInterval(tick, 1000);
   } else {
     clearInterval(ticker);
+    window.speechSynthesis.cancel();
   }
 });
 
@@ -268,14 +271,24 @@ btnReset.addEventListener('click', reset);
 
 function speak(text) {
   try {
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = 0.95;
-    u.pitch = 1.1;
-    u.volume = 1;
     window.speechSynthesis.cancel();
+    // iOS workaround: resume synthesis if it paused itself
+    if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.9;
+    u.pitch = 1.0;
+    u.volume = 1;
+    u.lang = 'en-US';
     window.speechSynthesis.speak(u);
   } catch(e) {}
 }
+
+// iOS Safari kills speech synthesis after ~15s; this keeps it alive
+setInterval(() => {
+  if (running && window.speechSynthesis.paused) {
+    window.speechSynthesis.resume();
+  }
+}, 5000);
 
 // Keep beep as silent fallback (unused but harmless)
 function beep() {}
