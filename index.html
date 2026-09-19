@@ -208,12 +208,12 @@ function nextPhase() {
   if (phase === 'work') {
     phase = 'rest';
     timeLeft = REST;
-    beep(440, 0.15);
+    speak('Rest');
   } else {
     roundNum++;
     phase = 'work';
     timeLeft = WORK;
-    beep(660, 0.15);
+    speak('Work');
   }
 }
 
@@ -229,7 +229,7 @@ function tick() {
     running = false;
     btnStart.textContent = 'Start';
     clearInterval(ticker);
-    beep(880, 0.5);
+    speak('Done! Great work!');
     render();
     return;
   }
@@ -266,20 +266,19 @@ btnStart.addEventListener('click', () => {
 
 btnReset.addEventListener('click', reset);
 
-// Simple beep via Web Audio
-let audioCtx;
-function beep(freq, dur) {
+function speak(text) {
   try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-    o.connect(g); g.connect(audioCtx.destination);
-    o.frequency.value = freq;
-    g.gain.setValueAtTime(0.3, audioCtx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
-    o.start(); o.stop(audioCtx.currentTime + dur);
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.95;
+    u.pitch = 1.1;
+    u.volume = 1;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
   } catch(e) {}
 }
+
+// Keep beep as silent fallback (unused but harmless)
+function beep() {}
 
 render();
 </script>
