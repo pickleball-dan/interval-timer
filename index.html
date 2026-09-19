@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Interval Timer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #1a1a2e;
+    color: white;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  #phase-label {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    opacity: 0.7;
+  }
+
+  #ring-wrap {
+    position: relative;
+    width: 260px;
+    height: 260px;
+  }
+
+  #ring-wrap svg {
+    transform: rotate(-90deg);
+  }
+
+  #ring-bg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 16; }
+  #ring-progress { fill: none; stroke-width: 16; stroke-linecap: round; transition: stroke-dashoffset 0.5s linear, stroke 0.3s; }
+
+  #time-display {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+
+  #seconds {
+    font-size: 76px;
+    font-weight: 200;
+    line-height: 1;
+    letter-spacing: -2px;
+  }
+
+  #total-remaining {
+    font-size: 13px;
+    opacity: 0.5;
+    margin-top: 4px;
+  }
+
+  #round-info {
+    font-size: 15px;
+    opacity: 0.6;
+  }
+
+  #controls {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+
+  button {
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+  }
+
+  #btn-start {
+    background: white;
+    color: #1a1a2e;
+    font-size: 18px;
+    width: 120px;
+    height: 52px;
+  }
+
+  #btn-reset {
+    background: rgba(255,255,255,0.12);
+    color: white;
+    font-size: 15px;
+    width: 80px;
+    height: 44px;
+  }
+
+  #progress-bar-wrap {
+    width: 260px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
+    height: 6px;
+    overflow: hidden;
+  }
+
+  #progress-bar {
+    height: 100%;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.5);
+    transition: width 1s linear;
+  }
+
+  #total-label {
+    font-size: 12px;
+    opacity: 0.4;
+    letter-spacing: 0.05em;
+  }
+
+  .work  { color: #4ade80; }
+  .rest  { color: #60a5fa; }
+
+  body.phase-work  { background: #0f2a1f; }
+  body.phase-rest  { background: #0f1e2e; }
+  body.phase-done  { background: #1a1a2e; }
+</style>
+</head>
+<body class="phase-work">
+
+<div id="phase-label">Work</div>
+
+<div id="ring-wrap">
+  <svg width="260" height="260" viewBox="0 0 260 260">
+    <circle class="ring-bg" id="ring-bg" cx="130" cy="130" r="112"/>
+    <circle id="ring-progress" cx="130" cy="130" r="112"/>
+  </svg>
+  <div id="time-display">
+    <div id="seconds">40</div>
+    <div id="total-remaining">20:00 left</div>
+  </div>
+</div>
+
+<div id="round-info">Round 1 · Work</div>
+
+<div id="controls">
+  <button id="btn-reset">Reset</button>
+  <button id="btn-start">Start</button>
+</div>
+
+<div id="progress-bar-wrap">
+  <div id="progress-bar" style="width:100%"></div>
+</div>
+<div id="total-label">TOTAL SESSION</div>
+
+<script>
+const WORK = 40, REST = 20, TOTAL = 20 * 60;
+const CIRCUMFERENCE = 2 * Math.PI * 112;
+
+const ring = document.getElementById('ring-progress');
+const secEl = document.getElementById('seconds');
+const totalEl = document.getElementById('total-remaining');
+const roundEl = document.getElementById('round-info');
+const phaseLabel = document.getElementById('phase-label');
+const progressBar = document.getElementById('progress-bar');
+const btnStart = document.getElementById('btn-start');
+const btnReset = document.getElementById('btn-reset');
+
+ring.style.strokeDasharray = CIRCUMFERENCE;
+
+let phase = 'work';   // 'work' | 'rest' | 'done'
+let timeLeft = WORK;
+let totalLeft = TOTAL;
+let roundNum = 1;
+let running = false;
+let ticker = null;
+
+function fmt(s) { return String(s).padStart(2,'0'); }
+function fmtTotal(s) {
+  const m = Math.floor(s/60), sec = s % 60;
+  return `${m}:${fmt(sec)} left`;
+}
+
+function phaseDuration() { return phase === 'work' ? WORK : REST; }
+function phaseColor() { return phase === 'work' ? '#4ade80' : '#60a5fa'; }
+
+function render() {
+  const dur = phaseDuration();
+  const frac = timeLeft / dur;
+  ring.style.strokeDashoffset = CIRCUMFERENCE * (1 - frac);
+  ring.style.stroke = phaseColor();
+  secEl.textContent = timeLeft;
+  secEl.className = phase === 'work' ? 'work' : 'rest';
+  totalEl.textContent = phase === 'done' ? 'Done!' : fmtTotal(totalLeft);
+  phaseLabel.textContent = phase === 'done' ? '🎉 Done' : phase === 'work' ? 'Work' : 'Rest';
+  roundEl.textContent = phase === 'done'
+    ? `${roundNum - 1} rounds completed`
+    : `Round ${roundNum} · ${phase === 'work' ? 'Work' : 'Rest'}`;
+  document.body.className = `phase-${phase}`;
+  progressBar.style.width = ((TOTAL - totalLeft) / TOTAL * 100) + '%';
+}
+
+function nextPhase() {
+  if (phase === 'work') {
+    phase = 'rest';
+    timeLeft = REST;
+    beep(440, 0.15);
+  } else {
+    roundNum++;
+    phase = 'work';
+    timeLeft = WORK;
+    beep(660, 0.15);
+  }
+}
+
+function tick() {
+  if (!running) return;
+  timeLeft--;
+  totalLeft--;
+
+  if (totalLeft <= 0) {
+    totalLeft = 0;
+    timeLeft = 0;
+    phase = 'done';
+    running = false;
+    btnStart.textContent = 'Start';
+    clearInterval(ticker);
+    beep(880, 0.5);
+    render();
+    return;
+  }
+
+  if (timeLeft <= 0) {
+    nextPhase();
+  }
+
+  render();
+}
+
+function reset() {
+  clearInterval(ticker);
+  running = false;
+  phase = 'work';
+  timeLeft = WORK;
+  totalLeft = TOTAL;
+  roundNum = 1;
+  btnStart.textContent = 'Start';
+  progressBar.style.width = '0%';
+  render();
+}
+
+btnStart.addEventListener('click', () => {
+  if (phase === 'done') { reset(); return; }
+  running = !running;
+  btnStart.textContent = running ? 'Pause' : 'Resume';
+  if (running) {
+    ticker = setInterval(tick, 1000);
+  } else {
+    clearInterval(ticker);
+  }
+});
+
+btnReset.addEventListener('click', reset);
+
+// Simple beep via Web Audio
+let audioCtx;
+function beep(freq, dur) {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.connect(g); g.connect(audioCtx.destination);
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    o.start(); o.stop(audioCtx.currentTime + dur);
+  } catch(e) {}
+}
+
+render();
+</script>
+</body>
+</html>
