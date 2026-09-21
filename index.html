@@ -269,10 +269,46 @@ btnStart.addEventListener('click', () => {
 
 btnReset.addEventListener('click', reset);
 
+// AudioContext — loud, reliable on iOS, bypasses silent mode
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function beepTone(freq, duration, gain) {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    osc.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gainNode.gain.setValueAtTime(gain, ctx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + duration);
+  } catch(e) {}
+}
+
 function speak(text) {
+  // Play loud tones + speech synthesis together
+  if (text === 'Work') {
+    beepTone(880, 0.18, 2.5);  // high double beep
+    setTimeout(() => beepTone(880, 0.18, 2.5), 220);
+  } else if (text === 'Rest') {
+    beepTone(440, 0.35, 2.5);  // low single beep
+  } else {
+    // Done — triple beep
+    beepTone(660, 0.18, 2.5);
+    setTimeout(() => beepTone(660, 0.18, 2.5), 220);
+    setTimeout(() => beepTone(880, 0.4, 2.5), 440);
+  }
+  // Also keep speech synthesis as voice label
   try {
     window.speechSynthesis.cancel();
-    // iOS workaround: resume synthesis if it paused itself
     if (window.speechSynthesis.paused) window.speechSynthesis.resume();
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 0.9;
@@ -285,13 +321,8 @@ function speak(text) {
 
 // iOS Safari kills speech synthesis after ~15s; this keeps it alive
 setInterval(() => {
-  if (running && window.speechSynthesis.paused) {
-    window.speechSynthesis.resume();
-  }
+  if (running && window.speechSynthesis.paused) window.speechSynthesis.resume();
 }, 5000);
-
-// Keep beep as silent fallback (unused but harmless)
-function beep() {}
 
 render();
 </script>
